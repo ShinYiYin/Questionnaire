@@ -23,4 +23,6 @@ public interface QuizService {
 	public QuestionnaireRes searchQuestionnaireList(String title, LocalDate startDate, LocalDate endDate, boolean isPublished);  //模糊搜尋(分開版-問卷）
 	
 	public QuestionRes searchQuestionList(int qnId);  //模糊搜尋(分開版-題目）
+	
+	public QuizRes selectFuzzy(String title, LocalDate startDate, LocalDate endDate);
 }

@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.example.questionnaire.entity.Question;
 import com.example.questionnaire.entity.Questionnaire;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 //QuizVo作為容器裝組合：一張問卷多個題目的組合
 public class QuizVo {
@@ -12,6 +13,7 @@ public class QuizVo {
 	
 	private Questionnaire questionnaire = new Questionnaire();
 	
+	@JsonProperty("question_list")
 	private List<Question> questionList = new ArrayList<>();
 
 	public QuizVo() {

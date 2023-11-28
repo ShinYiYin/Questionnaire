@@ -9,6 +9,7 @@ import java.util.Optional;
 import javax.transaction.Transactional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -18,6 +19,7 @@ import com.example.questionnaire.entity.Questionnaire;
 import com.example.questionnaire.repository.QuestionDao;
 import com.example.questionnaire.repository.QuestionnaireDao;
 import com.example.questionnaire.service.ifs.QuizService;
+import com.example.questionnaire.vo.QnQuVo;
 import com.example.questionnaire.vo.QuestionRes;
 import com.example.questionnaire.vo.QuestionnaireRes;
 import com.example.questionnaire.vo.QuizReq;
@@ -94,6 +96,7 @@ public class QuizServiceImpl implements QuizService {
 	}
 
 //	刪除問卷
+	@Transactional
 	@Override
 	public QuizRes deleteQuestionnaire(List<Integer> qnIdList) {
 		// findByIdIn不需檢查<= 0或null，因為有就有，沒有找到就沒有。
@@ -115,6 +118,7 @@ public class QuizServiceImpl implements QuizService {
 	}
 
 //	刪除題目
+	@Transactional
 	@Override
 	public QuizRes deleteQuestion(int qnId, List<Integer> quIdList) {
 		// 找問卷流水號
@@ -133,30 +137,31 @@ public class QuizServiceImpl implements QuizService {
 		return new QuizRes(RtnCode.SUCCESSFUL);
 	}
 
-//	模糊搜尋
+//	模糊搜尋方法1
+	@Cacheable(cacheNames = "search",
+			// key值 =#title_#startDate_#endDate"
+			// 底線串接，key ="test_2023-11-10_2023-11-31"
+			key = "#title.concat('_').concat(#startDate.toString()).concat('_').concat(#endDate.toString())", unless = "#result.rtnCode.code != 200")
 	@Override
 	public QuizRes search(String title, LocalDate startDate, LocalDate endDate) {
-		// 搜尋條件
-		title = StringUtils.hasText(title) ? title : "";
-		startDate = startDate != null ? startDate : LocalDate.of(1971, 1, 1);
-		endDate = endDate != null ? endDate : LocalDate.of(2099, 12, 31);
-//		if(!StringUtils.hasText(title)) {
-//			title = ""; //方法含Containing，當設字串帶""時，才會帶全部資料。等於在搜尋標題欄位沒有輸入東西時，也可帶出所有資料。
-//		}
-//		if(startDate == null) {
-//			startDate = LocalDate.of(1971, 1, 1); //設一個系統開始時間及超晚的時間，使用者搜尋時間才能落在此區間內
-//		}
-//		if(endDate == null) {
-//			endDate = LocalDate.of(2099, 12, 31);
-//		}
+		// 搜尋條件 (為配合＠Cacheable，toString()不能為null，可以為空字串，故移至Controller先進行判斷
+//		title = StringUtils.hasText(title) ? title : ""; //方法含Containing，當設字串帶""時，才會帶全部資料。等於在搜尋標題欄位沒有輸入東西時，也可帶出所有資料。
+//		startDate = startDate != null ? startDate : LocalDate.of(1971, 1, 1); //設一個系統開始時間及超晚的時間，使用者搜尋時間才能落在此區間內
+//		endDate = endDate != null ? endDate : LocalDate.of(2099, 12, 31);
+
 		// 撈出搜尋後的問卷列表(qnList：問卷清單，內含有符合搜尋條件之問卷,不含題目)
-		List<Questionnaire> qnList = qnDao.findByTitleContainingAndStartDateGreaterThanEqualAndEndDateLessThanEqual(title, startDate, endDate);
+		List<Questionnaire> qnList = qnDao
+				.findByTitleContainingAndStartDateGreaterThanEqualAndEndDateLessThanEqual(title, startDate, endDate);
 		// 同時撈出問卷內對應的題目
 		List<Integer> qnIds = new ArrayList<>(); // qnIds:問卷流水號清單，存放符合條件問卷的流水號
 		for (Questionnaire qu : qnList) {
 			qnIds.add(qu.getId()); // 對qnList遍歷，來取得其問卷的流水號，放入List(qnIds):存放符合條件問卷的流水號
 		}
-		List<Question> quList = quDao.findAllByQnIdIn(qnIds); // 依據題目內的問卷流水號QnId，放入List(quList)：quList內含資料庫所有題目內的問卷流水號QnId
+		List<Question> quList = quDao.findAllByQnIdIn(qnIds); // qnIds為空時會報錯。依據題目內的問卷流水號QnId，放入List(quList)：quList內含資料庫所有題目內的問卷流水號QnId
+//		List<Question> quList = new ArrayList<>();
+//		if(!qnIds.isEmpty()) {
+//			quList = quDao.findAllByQnIdIn(qnIds);
+//		}
 		List<QuizVo> quizVoList = new ArrayList<>();
 		// 問卷與題目配對
 		for (Questionnaire qn : qnList) { // 對符合搜尋條件之問卷(qnList)遍歷，為了分別將每張問卷分別裝入各自的vo(組合)
@@ -173,32 +178,46 @@ public class QuizServiceImpl implements QuizService {
 		}
 		return new QuizRes(quizVoList, RtnCode.SUCCESSFUL);
 	}
-//	模糊搜尋 (分開寫版本-問卷）
+
+//	模糊搜尋方法2 (分開寫版本-問卷）
 	@Override
-	public QuestionnaireRes searchQuestionnaireList(String title, LocalDate startDate, 
-			LocalDate endDate, boolean isAll) {
+	public QuestionnaireRes searchQuestionnaireList(String title, LocalDate startDate, LocalDate endDate,
+			boolean isPublished) {
 		// 搜尋條件
-		title = StringUtils.hasText(title) ? title : "";
-		startDate = startDate != null ? startDate : LocalDate.of(1971, 1, 1);
-		endDate = endDate != null ? endDate : LocalDate.of(2099, 12, 31);
+//		title = StringUtils.hasText(title) ? title : "";
+//		startDate = startDate != null ? startDate : LocalDate.of(1971, 1, 1);
+//		endDate = endDate != null ? endDate : LocalDate.of(2099, 12, 31);
 		List<Questionnaire> qnList = new ArrayList<>();
-		if(!isAll) {
-			qnList = qnDao.findByTitleContainingAndStartDateGreaterThanEqualAndEndDateLessThanEqualAndPublishedTrue(title, startDate, endDate);  //給前端
-		}else {
-			qnList = qnDao.findByTitleContainingAndStartDateGreaterThanEqualAndEndDateLessThanEqual(title, startDate, endDate);  //給後端
+		if (isPublished) {
+			qnList = qnDao.findByTitleContainingAndStartDateGreaterThanEqualAndEndDateLessThanEqualAndPublishedTrue(
+					title, startDate, endDate); // 給前端
+			return new QuestionnaireRes(qnList, RtnCode.SUCCESSFUL);
+		} else {
+			qnList = qnDao.findByTitleContainingAndStartDateGreaterThanEqualAndEndDateLessThanEqual(title, startDate,
+					endDate); // 給後端
+			return new QuestionnaireRes(qnList, RtnCode.SUCCESSFUL);
 		}
-		return new QuestionnaireRes(qnList, RtnCode.SUCCESSFUL);
-	}
-//	模糊搜尋 (分開寫版本-題目）
-	@Override
-	public QuestionRes searchQuestionList(int qnId) {
-		if(qnId <= 0) {
-			return new QuestionRes(null, RtnCode.QUESTIONNAIRE_ID_PARAM_ERROR);
-		}
-		List<Question> quList = quDao.findAllByQnIdIn(Arrays.asList(qnId)); //或是至QuestionDao再建一個方法public List<Question> findAllByQnId(int qnId)
-		return new QuestionRes(quList, RtnCode.SUCCESSFUL);
 	}
 
+//	模糊搜尋方法2 (分開寫版本-題目）
+	@Override
+	public QuestionRes searchQuestionList(int qnId) {
+		if (qnId <= 0) {
+			return new QuestionRes(null, RtnCode.QUESTIONNAIRE_ID_PARAM_ERROR);
+		}
+		List<Question> quList = quDao.findAllByQnIdIn(Arrays.asList(qnId)); // 或是至QuestionDao再建一個方法public List<Question>
+																			// findAllByQnId(int qnId)
+		return new QuestionRes(quList, RtnCode.SUCCESSFUL);
+	}
+	
+	//使用SQL
+	@Override
+	public QuizRes selectFuzzy(String title, LocalDate startDate, LocalDate endDate) {
+		List<QnQuVo> res = qnDao.selectFuzzy(title, startDate, endDate);
+		return new QuizRes(null, res, RtnCode.SUCCESSFUL);
+	}
+	
+//===================================================================================================
 //	檢查參數的方法 (抽出來定義一個私有方法)(回傳兩種型態null:檢查成功 或 QuizRes:沒有東西->RtnCode)
 	private QuizRes checkParam(QuizReq req) {
 		// 問卷參數檢查

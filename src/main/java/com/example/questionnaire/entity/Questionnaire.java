@@ -47,6 +47,26 @@ public class Questionnaire {
 		this.startDate = startDate;
 		this.endDate = endDate;
 	}
+	
+	//test用
+	public Questionnaire(int id, String title, String description, boolean published, LocalDate startDate,
+			LocalDate endDate) {
+		super();
+		this.id = id;
+		this.title = title;
+		this.description = description;
+		this.published = published;
+		this.startDate = startDate;
+		this.endDate = endDate;
+	}
+	
+	//SQL語法示範用
+	public Questionnaire(int id, String title, boolean published) {
+		super();
+		this.id = id;
+		this.title = title;
+		this.published = published;
+	}
 
 	public int getId() {
 		return id;

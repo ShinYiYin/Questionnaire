@@ -12,6 +12,8 @@ public class QuizRes {
 //	private List<Question> questionList;
 	//多個組合：一張問卷多個題目的組合，故用List包起來
 	private List<QuizVo> quizVoList;
+	
+	private List<QnQuVo> qnQuVoList;
 
 	private RtnCode rtnCode;
 	
@@ -30,6 +32,14 @@ public class QuizRes {
 		this.quizVoList = quizVoList;
 		this.rtnCode = rtnCode;
 	}
+	
+
+	public QuizRes(List<QuizVo> quizVoList, List<QnQuVo> qnQuVoList, RtnCode rtnCode) {
+		super();
+		this.quizVoList = quizVoList;
+		this.qnQuVoList = qnQuVoList;
+		this.rtnCode = rtnCode;
+	}
 
 	public RtnCode getRtnCode() {
 		return rtnCode;
@@ -45,6 +55,14 @@ public class QuizRes {
 
 	public void setQuizVoList(List<QuizVo> quizVoList) {
 		this.quizVoList = quizVoList;
+	}
+
+	public List<QnQuVo> getQnQuVoList() {
+		return qnQuVoList;
+	}
+
+	public void setQnQuVoList(List<QnQuVo> qnQuVoList) {
+		this.qnQuVoList = qnQuVoList;
 	}
 
 	

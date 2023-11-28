@@ -18,4 +18,6 @@ public interface QuestionDao extends JpaRepository<Question, Integer>{
 	
 	//搜尋問卷其對應題目用
 	public List<Question> findAllByQnIdIn(List<Integer> qnIdList);
+
+	
 }
